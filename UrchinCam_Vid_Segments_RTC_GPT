@@ -1,13 +1,13 @@
 import time
 import smbus
-from datetime import datetime
-import subprocess  # To run camera commands
+from datetime import datetime, timedelta
+import subprocess
 
-# Define the I2C bus and RTC address
+# I2C bus and RTC address
 bus = smbus.SMBus(1)
-rtc_address = 0x68  # Address of your RTC module
+rtc_address = 0x68
 
-# Function to read the time from RTC
+# Read RTC time
 def read_rtc():
     data = bus.read_i2c_block_data(rtc_address, 0x00, 7)
     second = bcd_to_decimal(data[0] & 0x7F)
@@ -18,41 +18,59 @@ def read_rtc():
     year = bcd_to_decimal(data[6]) + 2000
     return datetime(year, month, day, hour, minute, second)
 
-# Function to convert BCD to decimal
+# Convert BCD to decimal
 def bcd_to_decimal(bcd):
     return (bcd & 0x0F) + ((bcd >> 4) * 10)
 
-# Function to start recording with the camera
-def start_camera_recording(duration=10):
-    # Generate a filename based on the current time
-    current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")  # e.g., 2025-04-07_14-30-00
+# Start camera recording for given duration in seconds
+def start_camera_recording(duration_secs):
+    current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     output_file = f"video_{current_time}.h264"
     
-    # Use `rpicam-vid` or `raspivid` to record video
     command = [
-        "rpicam-vid",      # or use "raspivid"
-        "-t", str(duration * 1000),  # Convert duration to milliseconds
+        "rpicam-vid",
+        "-t", str(duration_secs * 1000),
         "-o", output_file,
-        "--inline",        # Include headers in keyframes
-        "--nopreview"      # Disable preview window
+        "--inline",
+        "--nopreview"
     ]
-    
-    print(f"Starting video recording: {output_file}")
-    subprocess.run(command, check=True)  # Run the camera recording
 
-# Main program: Trigger camera action at a specific time
-def trigger_camera_at_time(target_hour, target_minute):
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] Recording for {duration_secs} seconds → {output_file}")
+    subprocess.run(command, check=True)
+
+# Calculate seconds until next hour or half-hour
+def seconds_until_next_slot(current_time):
+    minute = current_time.minute
+    second = current_time.second
+
+    if minute < 30:
+        next_slot = current_time.replace(minute=30, second=0, microsecond=0)
+    else:
+        next_slot = (current_time + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+
+    delta = (next_slot - current_time).total_seconds()
+    return int(delta)
+
+# Main loop
+def continuous_half_hour_segments():
+    first_run = True
+
     while True:
-        rtc_time = read_rtc()  # Get time from RTC
-        print(f"RTC Time: {rtc_time.strftime('%H:%M:%S')}")
+        now = read_rtc()
 
-        # Check if the current RTC time matches the target time
-        if rtc_time.hour == target_hour and rtc_time.minute == target_minute:
-            print(f"Triggering camera recording at {rtc_time.strftime('%H:%M:%S')}")
-            start_camera_recording(duration=10)  # Start recording
-            time.sleep(60)  # Wait a minute to avoid repeated triggers
+        if first_run:
+            duration = seconds_until_next_slot(now)
+            print("First run — recording until next half-hour or hour.")
+            start_camera_recording(duration)
+            first_run = False
+            continue
 
-        time.sleep(1)  # Check RTC time every second
+        # Align with :00 or :30 exactly
+        if now.minute in [0, 30] and now.second < 5:  # A little buffer to avoid missing the mark
+            start_camera_recording(1800)  # 30 minutes
+            time.sleep(1800)
+        else:
+            time.sleep(5)  # Check again shortly
 
-# Example: Trigger camera recording at 12:30 PM
-trigger_camera_at_time(12, 30)
+# Start the scheduler
+continuous_half_hour_segments()
