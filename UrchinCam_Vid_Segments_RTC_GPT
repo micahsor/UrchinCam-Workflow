@@ -1,0 +1,58 @@
+import time
+import smbus
+from datetime import datetime
+import subprocess  # To run camera commands
+
+# Define the I2C bus and RTC address
+bus = smbus.SMBus(1)
+rtc_address = 0x68  # Address of your RTC module
+
+# Function to read the time from RTC
+def read_rtc():
+    data = bus.read_i2c_block_data(rtc_address, 0x00, 7)
+    second = bcd_to_decimal(data[0] & 0x7F)
+    minute = bcd_to_decimal(data[1])
+    hour = bcd_to_decimal(data[2] & 0x3F)
+    day = bcd_to_decimal(data[4])
+    month = bcd_to_decimal(data[5])
+    year = bcd_to_decimal(data[6]) + 2000
+    return datetime(year, month, day, hour, minute, second)
+
+# Function to convert BCD to decimal
+def bcd_to_decimal(bcd):
+    return (bcd & 0x0F) + ((bcd >> 4) * 10)
+
+# Function to start recording with the camera
+def start_camera_recording(duration=10):
+    # Generate a filename based on the current time
+    current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")  # e.g., 2025-04-07_14-30-00
+    output_file = f"video_{current_time}.h264"
+    
+    # Use `rpicam-vid` or `raspivid` to record video
+    command = [
+        "rpicam-vid",      # or use "raspivid"
+        "-t", str(duration * 1000),  # Convert duration to milliseconds
+        "-o", output_file,
+        "--inline",        # Include headers in keyframes
+        "--nopreview"      # Disable preview window
+    ]
+    
+    print(f"Starting video recording: {output_file}")
+    subprocess.run(command, check=True)  # Run the camera recording
+
+# Main program: Trigger camera action at a specific time
+def trigger_camera_at_time(target_hour, target_minute):
+    while True:
+        rtc_time = read_rtc()  # Get time from RTC
+        print(f"RTC Time: {rtc_time.strftime('%H:%M:%S')}")
+
+        # Check if the current RTC time matches the target time
+        if rtc_time.hour == target_hour and rtc_time.minute == target_minute:
+            print(f"Triggering camera recording at {rtc_time.strftime('%H:%M:%S')}")
+            start_camera_recording(duration=10)  # Start recording
+            time.sleep(60)  # Wait a minute to avoid repeated triggers
+
+        time.sleep(1)  # Check RTC time every second
+
+# Example: Trigger camera recording at 12:30 PM
+trigger_camera_at_time(12, 30)
