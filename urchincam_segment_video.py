@@ -4,24 +4,26 @@ import subprocess
 
 # Start camera recording for given duration in seconds
 def start_camera_recording(duration_secs):
-    current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    output_file = f"video_{current_time}.h264"
+    current_time = datetime.now().strftime()
+    output_file = f"video_{current_time}.mp4"
     
     command = [
         "rpicam-vid",
         "-t", str(duration_secs * 1000),
+        "--codec", libav,
         "-o", output_file,
         "--inline",
-        "--nopreview",
-        "--annotate", "%Y-%m-%d_%H-%M-%S",
-        "--annotate-text-size", "24",
-        "--annotate-text-colour", "0xFFFFF",
-        "--annotate-bg-colour", "0x00000"
+        "--nopreview"
     ]
 
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Recording for {duration_secs} seconds → {output_file}")
-    subprocess.run(command, check=True)
-
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError as e:
+        print (f"[{datetime.now().strftime('%H:%M:%S')}] ERROR: Failed to record video.")
+        print ("Command:", e.cmd)
+        print ("Exit code:", e.returncode)
+        
 # Calculate seconds until next hour or half-hour
 def seconds_until_next_slot(current_time):
     minute = current_time.minute
