@@ -4,21 +4,33 @@ import subprocess
 
 # Start camera recording for given duration in seconds
 def start_camera_recording(duration_secs):
-    current_time = datetime.now().strftime()
-    output_file = f"video_{current_time}.mp4"
+    current_time = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+    h264_file = f"video_{current_time}.h264"
+    mp4_file = f"video_{current_time}.mp4"
     
     command = [
         "rpicam-vid",
         "-t", str(duration_secs * 1000),
-        "--codec", libav,
-        "-o", output_file,
+        "-o", h264_file,
         "--inline",
         "--nopreview"
     ]
 
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] Recording for {duration_secs} seconds → {output_file}")
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] Recording for {duration_secs} seconds → {mp4_file}")
     try:
         subprocess.run(command, check=True)
+        
+        # Convert to mp4.
+        convert_command = [
+            "ffmpeg", "-y",
+            "-framerate", "30",
+            "-i", h264_file,
+            "-c", "copy",
+            mp4_file
+        ]
+        subprocess.run (convert_command, check = True)
+        os.remove (h264_file)
+        
     except subprocess.CalledProcessError as e:
         print (f"[{datetime.now().strftime('%H:%M:%S')}] ERROR: Failed to record video.")
         print ("Command:", e.cmd)
@@ -51,12 +63,12 @@ def continuous_half_hour_segments():
             first_run = False
             continue
 
-        # Align with :00 or :30 exactly
-        if now.minute in [0, 30]:  # No seconds indicated to provide one-minute buffer.
-            start_camera_recording(1800)  # 30 minutes
-            time.sleep(1800)
-        else:
-            time.sleep(5)  # Check again shortly
+        # Run current time through duration calculation.
+        now = datetime.now ()
+        duration = seconds_until_next_slot (now)
+        start_camera_recording (duration)
+        
+
 
 # Start the scheduler
 continuous_half_hour_segments()
