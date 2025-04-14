@@ -1,6 +1,7 @@
 import time
 from datetime import datetime, timedelta
 import subprocess
+import os
 
 # Start camera recording for given duration in seconds
 def start_camera_recording(duration_secs):
