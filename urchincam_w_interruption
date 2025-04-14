@@ -1,0 +1,97 @@
+import time
+import os
+import signal
+import sys
+from datetime import datetime, timedelta
+import subprocess
+
+# Global camera process
+camera_process = None
+
+# Shutdown handler
+def handle_shutdown(signum, frame):
+    global camera_process
+    print(f"\n[{datetime.now().strftime('%H:%M:%S')}] Shutdown signal received. Terminating recording...")
+
+    if camera_process and camera_process.poll() is None:
+        camera_process.terminate()
+        try:
+            camera_process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            camera_process.kill()
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] Recording terminated early.")
+
+    sys.exit(0)
+
+# Register signal handlers
+signal.signal(signal.SIGINT, handle_shutdown)
+signal.signal(signal.SIGTERM, handle_shutdown)
+
+# Start camera recording for given duration in seconds
+def start_camera_recording(duration_secs):
+    global camera_process
+    current_time = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+    h264_file = f"video_{current_time}.h264"
+    mp4_file = f"video_{current_time}.mp4"
+
+    command = [
+        "rpicam-vid",
+        "-t", str(duration_secs * 1000),
+        "-o", h264_file,
+        "--inline",
+        "--nopreview"
+    ]
+
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] Recording for {duration_secs} seconds → {mp4_file}")
+    try:
+        camera_process = subprocess.Popen(command)
+        camera_process.wait()
+
+        if camera_process.returncode == 0 and os.path.exists(h264_file):
+            # Convert to mp4.
+            convert_command = [
+                "ffmpeg", "-y",
+                "-framerate", "30",
+                "-i", h264_file,
+                "-c", "copy",
+                mp4_file
+            ]
+            subprocess.run(convert_command, check=True)
+            os.remove(h264_file)
+        else:
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] Recording did not complete successfully.")
+
+    except Exception as e:
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] ERROR: {e}")
+
+# Calculate seconds until next hour or half-hour
+def seconds_until_next_slot(current_time):
+    minute = current_time.minute
+    second = current_time.second
+
+    if minute < 30:
+        next_slot = current_time.replace(minute=30, second=0, microsecond=0)
+    else:
+        next_slot = (current_time + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+
+    delta = (next_slot - current_time).total_seconds()
+    return int(delta)
+
+# Main loop
+def continuous_half_hour_segments():
+    first_run = True
+
+    while True:
+        now = datetime.now()
+
+        if first_run:
+            duration = seconds_until_next_slot(now)
+            print("First run — recording until next half-hour or hour.")
+            first_run = False
+        else:
+            duration = seconds_until_next_slot(datetime.now())
+
+        start_camera_recording(duration)
+
+# Start the scheduler
+continuous_half_hour_segments()
