@@ -16,3 +16,10 @@ sudo kill -9 PID
 
 # HOW TO: Kill all python files
 pkill -f python
+
+# HOW TO: Shutdown or reboot the Raspberry Pi
+# Open terminal
+# Shutdown
+sudo shutdown -h now
+# Reboot
+sudo reboot -h now
