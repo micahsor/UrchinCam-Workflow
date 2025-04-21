@@ -1,0 +1,17 @@
+# HOW TO: Run python code in bash
+# Open bash in terminal
+nano ~/.bashrc
+# Scroll to the bottom and add
+python3 /home/pi/path/to/your_script.py &
+# Save and exit: CTRL+O, Enter, CTRL+X
+# Apply changes
+source ~/.bashrc
+
+# HOW TO: Kill camera process
+# Find process ID in terminal
+lsof | grep video
+# Identify PID that corresponds to rpicam-vid, usually 4 digit integral
+# Kill PID
+sudo kill -9 PID
+
+
