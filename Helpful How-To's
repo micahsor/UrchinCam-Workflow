@@ -14,4 +14,5 @@ lsof | grep video
 # Kill PID
 sudo kill -9 PID
 
-
+# HOW TO: Kill all python files
+pkill -f python
