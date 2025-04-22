@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import time
 from datetime import datetime, timedelta
 import subprocess
@@ -32,6 +33,7 @@ def start_camera_recording(duration_secs):
         subprocess.run (convert_command, check = True)
         os.remove (h264_file)
         
+        
     except subprocess.CalledProcessError as e:
         print (f"[{datetime.now().strftime('%H:%M:%S')}] ERROR: Failed to record video.")
         print ("Command:", e.cmd)
@@ -58,7 +60,7 @@ def continuous_half_hour_segments():
         now = datetime.now ()
 
         if first_run:
-            duration = seconds_until_next_slot(now)
+            duration = (seconds_until_next_slot(now) - 60) # Subtracts one minute from duration as buffer. 
             print("First run — recording until next half-hour or hour.")
             start_camera_recording(duration)
             first_run = False
@@ -69,7 +71,5 @@ def continuous_half_hour_segments():
         duration = seconds_until_next_slot (now)
         start_camera_recording (duration)
         
-
-
 # Start the scheduler
 continuous_half_hour_segments()
