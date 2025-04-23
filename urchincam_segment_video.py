@@ -63,8 +63,8 @@ def start_camera_recording(duration_secs):
         print ("Command:", e.cmd)
         print ("Exit code:", e.returncode)
         log (f"ERROR: Failed to record video.")
-        log ("Command:", e.cmd)
-        log ("Exit code:", e.returncode)
+        log (f"Command:", {e.cmd})
+        log (f"Exit code:", {e.returncode})
         
 # Calculate seconds until next hour or half-hour
 def seconds_until_next_slot(current_time):
