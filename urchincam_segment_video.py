@@ -3,6 +3,18 @@ import time
 from datetime import datetime, timedelta
 import subprocess
 import os
+import signal
+import sys
+
+# Graceful exit flag
+should_exit = False
+
+def signal_handler (sig, frame):
+    global should_exit
+    print ("\n[!] Received interrupt signal. Preparing to exit gracefully...")
+    should_exit = True
+
+signal.signal (signal.SIGINT, signal_handler)
 
 # Start camera recording for given duration in seconds
 def start_camera_recording(duration_secs):
@@ -53,12 +65,21 @@ def seconds_until_next_slot(current_time):
     return int(delta)
 
 # Main loop
-def continuous_half_hour_segments():
+def continuous_half_hour_segments(max_runtime_secs=72*3600): # Sets max runtime to 72 hours.
+    global should_exit
     first_run = True
+    start_time = time.time ()
 
-    while True:
+    while not should_exit:
         now = datetime.now ()
 
+        # Check if runtime exceeded
+        elapsed = time.time() - start_time
+        if elapsed >= max_runtime_secs:
+            print (f"[{now.strftime('%H:%M:%S')}] 72 hours reached - exiting.")
+            break
+
+        # Determine duration for this segment 
         if first_run:
             duration = (seconds_until_next_slot(now) - 60) # Subtracts one minute from duration as buffer. 
             print("First run — recording until next half-hour or hour.")
@@ -67,7 +88,6 @@ def continuous_half_hour_segments():
             continue
 
         # Run current time through duration calculation.
-        now = datetime.now ()
         duration = seconds_until_next_slot (now)
         start_camera_recording (duration)
         
