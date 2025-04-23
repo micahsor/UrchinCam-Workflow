@@ -23,3 +23,11 @@ pkill -f python
 sudo shutdown -h now
 # Reboot
 sudo reboot -h now
+
+# HOW TO: Download code from GitHub
+# Install git
+sudo echo "Y" | sudo apt-get install git
+sudo reboot
+# Install a package or file from GitHub
+cd /path
+wget https://raw.githubusercontent.com/user/repository_name/branch/file_name.py
