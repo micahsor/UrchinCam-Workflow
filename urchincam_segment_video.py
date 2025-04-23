@@ -21,8 +21,8 @@ def log(message):
 
 def signal_handler (sig, frame):
     global should_exit
-    print ("\n[!] Received interrupt signal. Preparing to exit gracefully...")
-    log ("\n[!] Received interrupt signal. Preparing to exit gracefully...")
+    print ("[!] Received interrupt signal. Preparing to exit gracefully...")
+    log ("[!] Received interrupt signal. Preparing to exit gracefully...")
     should_exit = True
 
 signal.signal (signal.SIGINT, signal_handler)
