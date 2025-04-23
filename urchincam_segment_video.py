@@ -6,12 +6,23 @@ import os
 import signal
 import sys
 
+# Log file name
+LOG_FILE = "urchin_log.txt"
+
 # Graceful exit flag
 should_exit = False
+
+def log(message):
+    timestamp = datetime.now().strftime ("%Y-%m-%d %H:%M:%S")
+    formatted = f"[{timestamp}] {message}"
+    print (formatted)
+    with open (LOG_FILE, "a") as f:
+        f.write (formatted + "\n")
 
 def signal_handler (sig, frame):
     global should_exit
     print ("\n[!] Received interrupt signal. Preparing to exit gracefully...")
+    log ("\n[!] Received interrupt signal. Preparing to exit gracefully...")
     should_exit = True
 
 signal.signal (signal.SIGINT, signal_handler)
@@ -21,7 +32,10 @@ def start_camera_recording(duration_secs):
     current_time = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
     h264_file = f"video_{current_time}.h264"
     mp4_file = f"video_{current_time}.mp4"
-    
+
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] Recording for {duration_secs} seconds → {mp4_file}")
+    log (f"Recording for {duration_secs} seconds → {mp4_file}")
+   
     command = [
         "rpicam-vid",
         "-t", str(duration_secs * 1000),
@@ -30,7 +44,6 @@ def start_camera_recording(duration_secs):
         "--nopreview"
     ]
 
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] Recording for {duration_secs} seconds → {mp4_file}")
     try:
         subprocess.run(command, check=True)
         
@@ -45,11 +58,13 @@ def start_camera_recording(duration_secs):
         subprocess.run (convert_command, check = True)
         os.remove (h264_file)
         
-        
     except subprocess.CalledProcessError as e:
         print (f"[{datetime.now().strftime('%H:%M:%S')}] ERROR: Failed to record video.")
         print ("Command:", e.cmd)
         print ("Exit code:", e.returncode)
+        log (f"ERROR: Failed to record video.")
+        log ("Command:", e.cmd)
+        log ("Exit code:", e.returncode)
         
 # Calculate seconds until next hour or half-hour
 def seconds_until_next_slot(current_time):
@@ -65,7 +80,7 @@ def seconds_until_next_slot(current_time):
     return int(delta)
 
 # Main loop
-def continuous_half_hour_segments(max_runtime_secs=72*3600): # Sets max runtime to 72 hours.
+def continuous_half_hour_segments(max_runtime_secs=72*3600): # Sets max runtime to 72 hours.    
     global should_exit
     first_run = True
     start_time = time.time ()
@@ -77,19 +92,22 @@ def continuous_half_hour_segments(max_runtime_secs=72*3600): # Sets max runtime 
         elapsed = time.time() - start_time
         if elapsed >= max_runtime_secs:
             print (f"[{now.strftime('%H:%M:%S')}] 72 hours reached - exiting.")
+            log ("72 hours reached - exiting.")
             break
 
         # Determine duration for this segment 
         if first_run:
             duration = (seconds_until_next_slot(now) - 60) # Subtracts one minute from duration as buffer. 
-            print("First run — recording until next half-hour or hour.")
+            print(f"First run [{now.strftime('%H:%M:%S')}]  — recording until next half-hour or hour.")
+            log ("First run — recording until next half-hour or hour.")
+            
             start_camera_recording(duration)
             first_run = False
             continue
-
-        # Run current time through duration calculation.
-        duration = seconds_until_next_slot (now)
-        start_camera_recording (duration)
+        else:
+            # Run current time through duration calculation.
+            duration = seconds_until_next_slot (now)
+            start_camera_recording (duration)
         
 # Start the scheduler
 continuous_half_hour_segments()
